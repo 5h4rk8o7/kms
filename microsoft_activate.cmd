@@ -848,14 +848,16 @@ echo                [7] Bypass Windows 11 Upgrade Assistant
 echo                [8] Native NVMe support in Windows
 echo                [9] Fix Thumbnails Preview Not Showing
 echo                [I] Windows Insider Program
+echo                [D] Disk Cleanup
 echo:
 echo           %line3%
 echo:
 echo                [Q] Quit to Main Menu
 echo           %line3%
-choice /c 123456789iQ /n /m "Choice :> "
+choice /c 123456789IDQ /n /m "Choice :> "
 set s_el=%errorlevel%
-if %s_el% EQU 11 goto :MainMenu
+if %s_el% EQU 12 goto :MainMenu
+if %s_el% EQU 11 goto :DiskCleanup
 if %s_el% EQU 10 goto :InsiderEnrollOffline
 if %s_el% EQU 9 goto :reset_thumbnails
 if %s_el% EQU 8 goto :native_NVMe
@@ -9724,13 +9726,13 @@ echo %linetop%
 echo Install Framework Runtime
 echo %linebottom%
 echo.
-echo Microsoft DotNet DesktopRuntime 3.1-9.0 / Microsoft DotNet Runtime 3.1-9.0
+echo Microsoft DotNet DesktopRuntime 3.1-10.0 / Microsoft DotNet Runtime 3.1-9.0
 echo Microsoft Visual C++ 2015 UWP Desktop Runtime Package / Microsoft Visual C++ 2005-2022 Redistributable
 echo.
 setlocal EnableDelayedExpansion
 :: List of application IDs
 
-set apps=Microsoft.WindowsTerminal Microsoft.PowerToys Microsoft.DirectX Microsoft.DotNet.DesktopRuntime.3_1 Microsoft.DotNet.Runtime.3_1 Microsoft.DotNet.DesktopRuntime.5 Microsoft.DotNet.Runtime.5 Microsoft.DotNet.DesktopRuntime.6 Microsoft.DotNet.Runtime.6 Microsoft.DotNet.DesktopRuntime.7 Microsoft.DotNet.Runtime.7 Microsoft.DotNet.DesktopRuntime.8 Microsoft.DotNet.Runtime.8 Microsoft.DotNet.DesktopRuntime.9 Microsoft.DotNet.Runtime.9 Microsoft.VCLibs.Desktop.14 Microsoft.VCRedist.2005.x64 Microsoft.VCRedist.2005.x86 Microsoft.VCRedist.2008.x64 Microsoft.VCRedist.2008.x86 Microsoft.VCRedist.2010.x64 Microsoft.VCRedist.2010.x86 Microsoft.VCRedist.2012.x64 Microsoft.VCRedist.2012.x86 Microsoft.VCRedist.2013.x64 Microsoft.VCRedist.2013.x86 Microsoft.VCRedist.2015+.x64 Microsoft.VCRedist.2015+.x86
+set apps=Microsoft.WindowsTerminal Microsoft.PowerToys Microsoft.DirectX Microsoft.DotNet.DesktopRuntime.3_1 Microsoft.DotNet.Runtime.3_1 Microsoft.DotNet.DesktopRuntime.5 Microsoft.DotNet.Runtime.5 Microsoft.DotNet.DesktopRuntime.6 Microsoft.DotNet.Runtime.6 Microsoft.DotNet.DesktopRuntime.7 Microsoft.DotNet.Runtime.7 Microsoft.DotNet.DesktopRuntime.8 Microsoft.DotNet.Runtime.8 Microsoft.DotNet.DesktopRuntime.9 Microsoft.DotNet.Runtime.9 Microsoft.DotNet.DesktopRuntime.10 Microsoft.DotNet.Runtime.10 Microsoft.VCLibs.Desktop.14 Microsoft.VCRedist.2005.x64 Microsoft.VCRedist.2005.x86 Microsoft.VCRedist.2008.x64 Microsoft.VCRedist.2008.x86 Microsoft.VCRedist.2010.x64 Microsoft.VCRedist.2010.x86 Microsoft.VCRedist.2012.x64 Microsoft.VCRedist.2012.x86 Microsoft.VCRedist.2013.x64 Microsoft.VCRedist.2013.x86 Microsoft.VCRedist.2015+.x64 Microsoft.VCRedist.2015+.x86
 
 for %%A in (%apps%) do (
     echo ---------------------------------------
@@ -11885,7 +11887,38 @@ rem ---START------------------------------
 Start "" "%tmp%\%~n0.vbs"
 rem ---END--------------------------------
 
-
+:clearSPP
+set spp=SoftwareLicensingProduct
+set sps=SoftwareLicensingService
+for /f "tokens=2 delims==" %%A in ('"wmic path %sps% get version /format:list"') do set ver=%%A
+for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (Description like '%%KMSCLIENT%%') get ID /format:list"') do (set app=%%G&call :clearKMS)
+wmic path %sps% where version='%ver%' call ClearKeyManagementServiceMachine >nul 2>&1
+wmic path %sps% where version='%ver%' call ClearKeyManagementServicePort >nul 2>&1
+wmic path %sps% where version='%ver%' call DisableKeyManagementServiceDnsPublishing 1 >nul 2>&1
+wmic path %sps% where version='%ver%' call DisableKeyManagementServiceHostCaching 1 >nul 2>&1
+reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform\55c92734-d682-4d71-983e-d6ec3f16059f" /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform\0ff1ce15-a989-479d-af46-f275c6370663" /f >nul 2>&1
+reg delete "HKEY_USERS\S-1-5-20\Software\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform\55c92734-d682-4d71-983e-d6ec3f16059f" /f >nul 2>&1
+reg delete "HKEY_USERS\S-1-5-20\Software\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform\0ff1ce15-a989-479d-af46-f275c6370663" /f >nul 2>&1
+exit /b
+:clearOSPP
+set spp=OfficeSoftwareProtectionProduct
+set sps=OfficeSoftwareProtectionService
+wmic path %sps% get version >nul 2>&1 || exit /b
+for /f "tokens=2 delims==" %%A in ('"wmic path %sps% get version /format:list" 2^>nul') do set ver=%%A
+for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (Description like '%%KMSCLIENT%%') get ID /format:list"') do (set app=%%G&call :clear)
+wmic path %sps% where version='%ver%' call ClearKeyManagementServiceMachine >nul 2>&1
+wmic path %sps% where version='%ver%' call ClearKeyManagementServicePort >nul 2>&1
+wmic path %sps% where version='%ver%' call DisableKeyManagementServiceDnsPublishing 1 >nul 2>&1
+wmic path %sps% where version='%ver%' call DisableKeyManagementServiceHostCaching 1 >nul 2>&1
+reg delete "HKLM\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform\59a52881-a989-479d-af46-f275c6370663" /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform\0ff1ce15-a989-479d-af46-f275c6370663" /f >nul 2>&1
+exit /b
+:clearKMS
+wmic path %spp% where ID='%app%' call ClearKeyManagementServiceMachine >nul 2>&1
+wmic path %spp% where ID='%app%' call ClearKeyManagementServicePort >nul 2>&1
+exit /b
+rem ---END--------------------------------
 
 rem ---START------------------------------
 :InsiderEnrollOffline
@@ -11900,6 +11933,8 @@ pause
 goto :EOF
 
 :START_SCRIPT
+set "_elv="
+set "scriptver=2.6.6"
 set "Content=Mainline"
 set "Ring=External"
 set "RID=11"
@@ -12200,39 +12235,80 @@ if /I "%choice%"=="y" shutdown -r -t 0
 goto :EOF
 rem ---END--------------------------------
 
-:clearSPP
-set spp=SoftwareLicensingProduct
-set sps=SoftwareLicensingService
-for /f "tokens=2 delims==" %%A in ('"wmic path %sps% get version /format:list"') do set ver=%%A
-for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (Description like '%%KMSCLIENT%%') get ID /format:list"') do (set app=%%G&call :clearKMS)
-wmic path %sps% where version='%ver%' call ClearKeyManagementServiceMachine >nul 2>&1
-wmic path %sps% where version='%ver%' call ClearKeyManagementServicePort >nul 2>&1
-wmic path %sps% where version='%ver%' call DisableKeyManagementServiceDnsPublishing 1 >nul 2>&1
-wmic path %sps% where version='%ver%' call DisableKeyManagementServiceHostCaching 1 >nul 2>&1
-reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform\55c92734-d682-4d71-983e-d6ec3f16059f" /f >nul 2>&1
-reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform\0ff1ce15-a989-479d-af46-f275c6370663" /f >nul 2>&1
-reg delete "HKEY_USERS\S-1-5-20\Software\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform\55c92734-d682-4d71-983e-d6ec3f16059f" /f >nul 2>&1
-reg delete "HKEY_USERS\S-1-5-20\Software\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform\0ff1ce15-a989-479d-af46-f275c6370663" /f >nul 2>&1
-exit /b
-:clearOSPP
-set spp=OfficeSoftwareProtectionProduct
-set sps=OfficeSoftwareProtectionService
-wmic path %sps% get version >nul 2>&1 || exit /b
-for /f "tokens=2 delims==" %%A in ('"wmic path %sps% get version /format:list" 2^>nul') do set ver=%%A
-for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (Description like '%%KMSCLIENT%%') get ID /format:list"') do (set app=%%G&call :clear)
-wmic path %sps% where version='%ver%' call ClearKeyManagementServiceMachine >nul 2>&1
-wmic path %sps% where version='%ver%' call ClearKeyManagementServicePort >nul 2>&1
-wmic path %sps% where version='%ver%' call DisableKeyManagementServiceDnsPublishing 1 >nul 2>&1
-wmic path %sps% where version='%ver%' call DisableKeyManagementServiceHostCaching 1 >nul 2>&1
-reg delete "HKLM\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform\59a52881-a989-479d-af46-f275c6370663" /f >nul 2>&1
-reg delete "HKLM\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform\0ff1ce15-a989-479d-af46-f275c6370663" /f >nul 2>&1
-exit /b
-:clearKMS
-wmic path %spp% where ID='%app%' call ClearKeyManagementServiceMachine >nul 2>&1
-wmic path %spp% where ID='%app%' call ClearKeyManagementServicePort >nul 2>&1
-exit /b
-rem ---END--------------------------------
+rem ---START------------------------------
+:DiskCleanup
+cls
+title Disk Cleanup
+echo.
+cd /d "%~dp0"
+echo %linetop%
+echo Disk Cleanup
+echo %linebottom%
+echo.
+rem Clean Up the WinSxS Folder
+rem https://docs.microsoft.com/en-us/windows-hardware/manufacture/desktop/clean-up-the-winsxs-folder
 
+echo ### Clean Folder :: "C:\WINDOWS\WinSxS"
+echo %processtext%
+echo %linetext%
+1>nul 2>&1 reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\SideBySide\Configuration" /f /v "DisableResetbase" /t "reg_DWORD" /d 0
+1>nul 2>&1 Dism.exe /online /Cleanup-Image /StartComponentCleanup /ResetBase || (
+  1>nul 2>&1 Dism.exe /online /Cleanup-Image /SPSuperseded
+  1>nul 2>&1 Dism.exe /online /Cleanup-Image /StartComponentCleanup
+)
+
+call :DestroyFilesFolders "%Windir%\Temp"
+call :DestroyFilesFolders "%Windir%\assembly\tmp"
+call :DestroyFilesFolders "%Windir%\assembly\temp"
+call :DestroyFilesFolders "%LOCALAPPDATA%\Temp"
+call :DestroyFilesFolders "%ALLUSERSPROFILE%\Comodo\Cis\tempscrpt"
+call :DestroyFilesFolders "%Windir%\SoftwareDistribution\Download"
+call :DestroyFilesFolders "%ProgramData%\NVIDIA Corporation\Downloader"
+call :DestroyFilesFolders "%ProgramFiles%\NVIDIA Corporation\Installer2"
+
+echo ### Clean Folder :: "%Windir%\System32\config\systemprofile\AppData\Local"
+echo %processtext%
+echo %linetext%
+set "tPath=%Windir%\System32\config\systemprofile\AppData\Local"
+>"%USERPROFILE%\AppData\Local\Temp\result" 2>&1 dir /ad /b "%tPath%\*tmp" && for /f "tokens=*" %%# in ('type "%USERPROFILE%\AppData\Local\Temp\result"') do >nul 2>&1 rd /s /q "%tPath%\%%#"
+
+echo.
+1>nul 2>&1 reg query "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches" && (
+  >"%USERPROFILE%\AppData\Local\Temp\tmp" reg query "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches"
+  for /f "tokens=*" %%g in ('type "%USERPROFILE%\AppData\Local\Temp\tmp"') do (
+    set addin=%%g
+    echo ### Clean Addins :: !addin:~83!
+    1>nul 2>&1 REG ADD "%%g" /f /v "StateFlags0001" /t REG_DWORD /d "2"
+  )
+  start /HIGH "" "cleanmgr" "/sagerun:1"
+)
+
+echo.
+echo Press any key to continue.
+pause >nul
+goto :MainMenu
+
+:DestroyFilesFolders
+set "targetFolder=%*"
+echo ### Clean Folder :: %targetFolder%
+echo %processtext%
+echo %linetext%
+if exist %targetFolder% (
+    1>nul 2>&1 rd /s /q %targetFolder%
+    if exist %targetFolder% (
+    if /i '!targetFolder!' NEQ '%USERPROFILE%\AppData\Local\Temp' (
+      for /f "tokens=*" %%g in ('dir /b/s /a-d %targetFolder%') do (
+        1>nul 2>&1 move /y "%%g" "%USERPROFILE%\AppData\Local\Temp"
+      )
+    )
+  ) else (
+    md %targetFolder%
+  )
+) else (
+  md %targetFolder%
+)
+goto :eof
+rem ---END--------------------------------
 
 :rename EditionID
 set "NT=HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion"
